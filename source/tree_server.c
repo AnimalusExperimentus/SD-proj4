@@ -18,13 +18,13 @@ int main(int argc, char *argv[]) {
         printf("Server takes 2 arguments: port number_threads\n");
         exit(-1);
     }
-    int port;
-    if(sscanf(argv[1], "%i", &port) != 1) {
+    string ip;
+    if(sscanf(argv[1], "%s", &ip) != 1) {
         printf("Port must be an integer\n");
         exit(-1);
     }
-    int thread_number;
-    if(sscanf(argv[2], "%i", &thread_number) != 1) {
+    int port;
+    if(sscanf(argv[2], "%i", &port) != 1) {
         printf("Number_threads must be an integer\n");
         exit(-1);
     }
@@ -35,7 +35,9 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    if (tree_skel_init(thread_number) != 0) {
+    start_coon(strcat(strcat(ip,":"),itoa(port)));
+
+    if (tree_skel_init(1) != 0) {
         printf("Tree initialization error\n");
         exit(-1);
     }

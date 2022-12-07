@@ -11,12 +11,15 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+
+#include "zookeeper/zookeeper.h"
 #include "../include/sdmessage.pb-c.h"
 #include "../include/tree.h"
 #include "../include/tree_skel.h"
 #include "../include/tree_skel_private.h"
 #include "../include/data.h"
 #include "../include/entry.h"
+#include "../include/zookeep.h"
 
 
 struct op_proc *proc_op;
@@ -33,6 +36,29 @@ pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_not_empty = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t tree_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t op_proc_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static zhandle_t *zh;
+
+
+void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
+	if (type == ZOO_SESSION_EVENT) {
+		if (state == ZOO_CONNECTED_STATE) {
+			is_connected = 1; 
+		} else {
+			is_connected = 0; 
+		}
+	}
+}
+
+
+void start_conn(locaHost){
+    zh = zookeeper_init(localHost, connection_watcher,	2000, 0, NULL, 0); 
+	if (zh == NULL)	{
+		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
+	    exit(EXIT_FAILURE);
+	}
+    sleep(3);
+}
 
 /**/
 void queue_add_request(struct request_t *request) {
