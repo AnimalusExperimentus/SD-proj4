@@ -38,7 +38,9 @@ pthread_mutex_t tree_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t op_proc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static zhandle_t *zh;
-
+static char *host_port;
+static char *root_path = "/chain";
+static int is_connected;
 
 void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
 	if (type == ZOO_SESSION_EVENT) {
@@ -52,6 +54,7 @@ void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, v
 
 
 void start_conn(locaHost){
+    host_port=locaHost;
     zh = zookeeper_init(localHost, connection_watcher,	2000, 0, NULL, 0); 
 	if (zh == NULL)	{
 		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
@@ -203,6 +206,30 @@ int tree_skel_init(int N) {
 		}
 	}
 
+    if (is_connected) {
+		if (ZNONODE == zoo_exists(zh, root_path, 0, NULL)) {
+			fprintf(stderr, "%s doesn't exist! \
+				Please start ZChildMaker.\n", root_path);
+			exit(EXIT_FAILURE);
+		}
+
+        char node_path[120] = "";
+		strcat(node_path,root_path); 
+		strcat(node_path,"/node"); 
+		int new_path_len = 1024;
+		char* new_path = malloc (new_path_len);
+		
+		
+			if (ZOK != zoo_create(zh, node_path, "node data", 10, & ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL | ZOO_SEQUENCE, new_path, new_path_len)) {
+				fprintf(stderr, "Error creating znode from path %s!\n", node_path);
+			    exit(EXIT_FAILURE);
+			}
+			fprintf(stderr, "Ephemeral Sequencial ZNode created! ZNode path: %s\n", new_path); 
+			sleep(5);
+		    free (new_path);
+        
+        }
+
     return 0;
 }
 
@@ -237,6 +264,8 @@ void tree_skel_destroy() {
         }
         free(queue_head);
     }
+
+    zookeeper_close(zh);
 }
 
 /* Executa uma operação na árvore (indicada pelo opcode contido em msg)
