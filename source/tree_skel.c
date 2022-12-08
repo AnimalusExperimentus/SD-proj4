@@ -41,6 +41,7 @@ static zhandle_t *zh;
 static char *host_port;
 static char *root_path = "/chain";
 static int is_connected;
+char *id;
 
 void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
 	if (type == ZOO_SESSION_EVENT) {
@@ -226,6 +227,7 @@ int tree_skel_init(int N) {
 			}
 			fprintf(stderr, "Ephemeral Sequencial ZNode created! ZNode path: %s\n", new_path); 
 			sleep(5);
+            id=strdup(new_path)
 		    free (new_path);
         
         }
