@@ -25,6 +25,7 @@ static int is_connected;
 
 struct rtree *rtreeHead;
 struct rtree *rtreeTail;
+static char *watcher_ctx = "ZooKeeper Data Watcher";
 
 
 void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
