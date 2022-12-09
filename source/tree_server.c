@@ -15,7 +15,7 @@
 int main(int argc, char *argv[]) {
 
     if (argc != 3) {
-        printf("Server takes 2 arguments: port number_threads\n");
+        printf("Server takes 2 arguments:ip port\n");
         exit(-1);
     }
     string ip;
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     }
     int port;
     if(sscanf(argv[2], "%i", &port) != 1) {
-        printf("Number_threads must be an integer\n");
+        printf("Port must be an integer\n");
         exit(-1);
     }
 

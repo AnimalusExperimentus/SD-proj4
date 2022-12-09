@@ -20,6 +20,9 @@
 #include "../include/data.h"
 #include "../include/entry.h"
 #include "../include/zookeep.h"
+#include "../include/network_client.h"
+
+typedef struct String_vector zoo_string; 
 
 
 struct op_proc *proc_op;
@@ -129,9 +132,18 @@ void *process_request (void *params) {
 
     // pthread_detach(pthread_self());
     int thread_n = *((int*)params);
+    zoo_string* children_list =	NULL;
+
 
     struct request_t *request;
+
     while (true) {
+
+        children_list =	(zoo_string *) malloc(sizeof(zoo_string));
+
+        if (ZOK != zoo_wget_children(zh, root_path, &child_watcher, watcher_ctx, children_list)) {
+				fprintf(stderr, "Error setting watch at %s!\n", root_path);
+			}
         
         request = queue_get_request();
         if (request == NULL) { break; } // ctrl^c
@@ -157,11 +169,36 @@ void *process_request (void *params) {
         }
         pthread_mutex_unlock(&op_proc_lock);
 
+        struct rtree_t next_server=malloc(sizeof(struct rtree));
+        next_server->server.sin_family = AF_INET;
+
+        for(int i=0;i<children_list->count;i++){
+            if(children_list->data[i]<id){
+
+
+                char copAdr [strlen(children_list->data[i])-15];
+                strcpy(copAdr,&children_list->data[i][14]);
+                char *adr = strtok(copAdr, ":");
+                char* ptr;
+                int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
+                network_connect(next_server);
+                network_send_receive();
+                network_close(next_server)
+                break;
+            }
+
+        }
+
+        
+
         // free request
         free(request->key);
         if (request->op == 1)
             data_destroy(request->data);
         free(request);
+        free(children_list);
+        free(next_server);
+        
     }
 
     // Signal next thread to exit

@@ -121,7 +121,7 @@ int *rtree_connect() {
     strcpy(copAdr_,&children_list->data[children_list->count -1][14]);
     char *adr_ = strtok(copAdr_, ":");
     char* ptr_;
-    int port _= (int) strtol( strtok(NULL,"\0"), &ptr_, 10);
+    int port_ = (int) strtol( strtok(NULL,"\0"), &ptr_, 10);
 
     // save socket data in rtree
     rtreeTail->server.sin_family = AF_INET;
