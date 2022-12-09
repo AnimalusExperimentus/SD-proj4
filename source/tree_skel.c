@@ -42,6 +42,7 @@ static char *host_port;
 static char *root_path = "/chain";
 static int is_connected;
 char *id;
+static char *watcher_ctx = "ZooKeeper Data Watcher";
 
 void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
 	if (type == ZOO_SESSION_EVENT) {
