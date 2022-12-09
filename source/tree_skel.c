@@ -12,7 +12,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "zookeeper/zookeeper.h"
+#include "/usr/include/zookeeper/zookeeper.h"
 #include "../include/sdmessage.pb-c.h"
 #include "../include/tree.h"
 #include "../include/tree_skel.h"
@@ -188,7 +188,7 @@ void *process_request (void *params) {
                 char *adr = strtok(copAdr, ":");
                 char* ptr;
                 int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
-               next_server->server.sin_port = htons(port);
+                next_server->server.sin_port = htons(port);
                 next_server->server.sin_addr.s_addr = inet_addr(adr);
 
                 MessageT msg = MESSAGE_T__INIT;
@@ -205,7 +205,7 @@ void *process_request (void *params) {
                 memcpy(msg.key, request->key, strlen(request->key)+1);
                 msg.size = strlen(request->key)+1;
                 msg.data.len = request->data->datasize;
-                msg.data.data = malloc(request->data->data);
+                msg.data.data = malloc(request->data->datasize);
                 memcpy(msg.data.data, request->data->data, request->data->datasize);
                 }
               

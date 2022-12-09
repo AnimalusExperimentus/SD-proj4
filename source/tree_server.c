@@ -8,8 +8,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "../include/network_server.h"
+#include "../include/zookeep.h"
+#include "../include/client_stub.h"
 
 
 int main(int argc, char *argv[]) {
@@ -18,6 +19,7 @@ int main(int argc, char *argv[]) {
         printf("Server takes 2 arguments:ip port\n");
         exit(-1);
     }
+
     char* ip;
     if(sscanf(argv[1], "%s", &ip) != 1) {
         printf("Port must be an integer\n");
@@ -34,8 +36,10 @@ int main(int argc, char *argv[]) {
         printf("Socket creation error\n");
         exit(-1);
     }
-    char *adr=strcat(strcat(ip,":"),itoa(port));
-    start_coon(adr);
+    char *portC;
+    sprintf(portC, "%d", port);
+    char *adr=strcat(strcat(ip,":"),portC);
+    start_conn(adr);
 
     if (tree_skel_init(1) != 0) {
         printf("Tree initialization error\n");

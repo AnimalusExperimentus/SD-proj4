@@ -1,13 +1,13 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall 
 
 SRCS := $(wildcard source/*.c)
 HDRS := $(wildcard include/*.h)
-S_OBJS = tree_server.o entry.o data.o tree.o tree_skel.o network_server.o network-private.o sdmessage.pb-c.o
+S_OBJS = tree_server.o entry.o data.o tree.o tree_skel.o network_server.o network-private.o network_client.o sdmessage.pb-c.o
 S_HDRS = entry.h data.h tree.h tree_skel.h network_server.h network-private.h sdmessage.pb-c.h zookeep.h
 C_L_OBJS = client_stub.o network_client.o sdmessage.pb-c.o network-private.o data.o entry.o
 C_L_HDRS = client_stub.h network_client.h sdmessage.pb-c.h network-private.h data.h entry.h zookeep.h
-LDFLAGS = /usr/lib/x86_64-linux-gnu/libprotobuf-c.a
+LDFLAGS = /usr/lib/x86_64-linux-gnu/libprotobuf-c.a -lzookeeper_mt
 
 all: tree-server tree-client
 

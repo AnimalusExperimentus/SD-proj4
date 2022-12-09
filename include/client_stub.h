@@ -19,7 +19,7 @@ struct rtree_t;
  * em que address_port é uma string no formato <hostname>:<port>.
  * Retorna NULL em caso de erro.
  */
-struct rtree_t *rtree_connect();
+int rtree_connect();
 
 /* Termina a associação entre o cliente e o servidor, fechando a 
  * ligação com o servidor e libertando toda a memória local.

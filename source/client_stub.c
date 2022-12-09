@@ -12,6 +12,7 @@ typedef struct String_vector zoo_string;
 #include "../include/sdmessage.pb-c.h"
 #include "../include/data.h"
 #include "../include/zookeep.h"
+#include "/usr/include/zookeeper/zookeeper.h"
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -25,8 +26,8 @@ static char *host_port;
 static char *root_path = "/chain";
 static int is_connected;
 
-struct rtree *rtreeHead;
-struct rtree *rtreeTail;
+struct rtree_t *rtreeHead;
+struct rtree_t *rtreeTail;
 static char *watcher_ctx = "ZooKeeper Data Watcher";
 
 
@@ -43,7 +44,7 @@ void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, v
 
 void start_conn(locaHost){
     host_port=locaHost;
-    zh = zookeeper_init(localHost, connection_watcher,	2000, 0, NULL, 0); 
+    zh = zookeeper_init(locaHost, connection_watcher,	2000, 0, NULL, 0); 
 	if (zh == NULL)	{
 		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
 	    exit(EXIT_FAILURE);
@@ -80,15 +81,10 @@ void disc_zoo(){
  * em que address_port é uma string no formato <hostname>:<port>.
  * Retorna NULL em caso de erro.
  */
-int *rtree_connect() {
+int rtree_connect() {
 
     zoo_string* children_list =	NULL;
-    
-    if(address_port == NULL){
-        return NULL;
-    }
 
-    
     children_list =	(zoo_string *) malloc(sizeof(zoo_string));
     // Create and allocate rtree
 
