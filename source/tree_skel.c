@@ -21,6 +21,9 @@
 #include "../include/entry.h"
 #include "../include/zookeep.h"
 #include "../include/network_client.h"
+#include "../include/client_stub_private.h"
+
+#define ZDATALEN 1024 * 1024
 
 typedef struct String_vector zoo_string; 
 
@@ -58,9 +61,9 @@ void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, v
 }
 
 
-void start_conn(locaHost){
+void start_conn(char* locaHost){
     host_port=locaHost;
-    zh = zookeeper_init(localHost, connection_watcher,	2000, 0, NULL, 0); 
+    zh = zookeeper_init(locaHost, connection_watcher,	2000, 0, NULL, 0); 
 	if (zh == NULL)	{
 		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
 	    exit(EXIT_FAILURE);
@@ -133,6 +136,7 @@ void *process_request (void *params) {
     // pthread_detach(pthread_self());
     int thread_n = *((int*)params);
     zoo_string* children_list =	NULL;
+    struct rtree_t *next_server;
 
 
     struct request_t *request;
@@ -169,11 +173,14 @@ void *process_request (void *params) {
         }
         pthread_mutex_unlock(&op_proc_lock);
 
-        struct rtree_t next_server=malloc(sizeof(struct rtree));
+        next_server=malloc(sizeof(struct rtree_t));
+
         next_server->server.sin_family = AF_INET;
 
         for(int i=0;i<children_list->count;i++){
             if(children_list->data[i]<id){
+
+
 
 
                 char copAdr [strlen(children_list->data[i])-15];
@@ -181,9 +188,31 @@ void *process_request (void *params) {
                 char *adr = strtok(copAdr, ":");
                 char* ptr;
                 int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
+               next_server->server.sin_port = htons(port);
+                next_server->server.sin_addr.s_addr = inet_addr(adr);
+
+                MessageT msg = MESSAGE_T__INIT;
+                msg.opcode = MESSAGE_T__OPCODE__OP_PUT;
+                msg.c_type = MESSAGE_T__C_TYPE__CT_ENTRY;
+                if(request->op==0){
+             
+                int len = strlen(request->key)+1;
+                msg.key = malloc(len);
+                memcpy(msg.key, request->key, len);
+                msg.size = len;
+                }else{
+                msg.key = malloc(strlen(request->key)+1);
+                memcpy(msg.key, request->key, strlen(request->key)+1);
+                msg.size = strlen(request->key)+1;
+                msg.data.len = request->data->datasize;
+                msg.data.data = malloc(request->data->data);
+                memcpy(msg.data.data, request->data->data, request->data->datasize);
+                }
+              
                 network_connect(next_server);
-                network_send_receive();
-                network_close(next_server)
+                network_send_receive(next_server,&msg);
+                free(msg.key);
+                network_close(next_server);
                 break;
             }
 
@@ -285,7 +314,7 @@ int tree_skel_init(int N) {
 			}
 			fprintf(stderr, "Ephemeral Sequencial ZNode created! ZNode path: %s\n", new_path); 
 			sleep(5);
-            id=strdup(new_path)
+            id=strdup(new_path);
 		    free (new_path);
         
         }

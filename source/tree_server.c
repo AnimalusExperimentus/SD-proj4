@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         printf("Server takes 2 arguments:ip port\n");
         exit(-1);
     }
-    string ip;
+    char* ip;
     if(sscanf(argv[1], "%s", &ip) != 1) {
         printf("Port must be an integer\n");
         exit(-1);
@@ -34,8 +34,8 @@ int main(int argc, char *argv[]) {
         printf("Socket creation error\n");
         exit(-1);
     }
-
-    start_coon(strcat(strcat(ip,":"),itoa(port)));
+    char *adr=strcat(strcat(ip,":"),itoa(port));
+    start_coon(adr);
 
     if (tree_skel_init(1) != 0) {
         printf("Tree initialization error\n");

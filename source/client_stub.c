@@ -17,6 +17,8 @@ typedef struct String_vector zoo_string;
 #include <stdio.h>
 #include "string.h"
 
+#define ZDATALEN 1024 * 1024
+
 
 static zhandle_t *zh;
 static char *host_port;

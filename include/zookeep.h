@@ -3,7 +3,7 @@
 #ifdef _ZOOKEEP_H
 #define _ZOOKEEP_H
 
-void start_conn(String localHost);
+void start_conn(char* localHost);
 
 void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context);
 
