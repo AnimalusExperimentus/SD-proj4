@@ -7,12 +7,13 @@
 
 #include "../include/client_stub.h"
 #include "../include/entry.h"
+#include "../include/zookeep.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #define BUFFERLEN 4096
-struct rtree_t *rtree;
+
 
 int main(int argc, char *argv[]) {
 
@@ -22,10 +23,12 @@ int main(int argc, char *argv[]) {
     }
 
     const char *addr = strtok(argv[1], " \n");  
+
+    start_conn(addr);
     
     // Establish connection with server
-    rtree = rtree_connect(addr);
-    if (rtree == NULL) {
+    int conn= rtree_connect();
+    if (conn == NULL) {
         perror("Error connecting to server\n");
         exit(-1);
     }
@@ -34,11 +37,15 @@ int main(int argc, char *argv[]) {
 
     char line[BUFFERLEN];
     while(fgets(line, BUFFERLEN, stdin)) {
+        rtree_disconnect();
+        int conn= rtree_connect();
+
 
         char* command = strtok(line, " \n");
         printf("\n");
         if (strcmp(command, "quit") == 0) {
-            rtree_disconnect(rtree);
+            rtree_disconnect();
+            disc_zoo();
             break;
         // PUT -----------------------------------------------------
         } else if (strcmp(command, "put") == 0) {
@@ -53,7 +60,7 @@ int main(int argc, char *argv[]) {
             struct data_t *d = data_create(strlen(data)+1);
             memcpy(d->data, data, strlen(data)+1);
             struct entry_t *e = entry_create(key, d);
-            int r = rtree_put(rtree, e);
+            int r = rtree_put(e);
             entry_destroy(e);
 
             if (r > 0) { 
@@ -71,7 +78,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            struct data_t *d = rtree_get(rtree, key);
+            struct data_t *d = rtree_get(key);
             if (d == NULL) { 
                 printf("Error in get\n");
                 printf("\n> ");
@@ -92,7 +99,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             
-            int r = rtree_del(rtree, key);
+            int r = rtree_del( key);
             if(r > 0) {
                 printf("Created request on server with number: %i\n", r);
             }else {
@@ -107,7 +114,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            int r = rtree_size(rtree);
+            int r = rtree_size();
             if (r == -1) {
                 perror("Error on size\n");
                 exit(-1);
@@ -123,7 +130,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            int r = rtree_height(rtree);
+            int r = rtree_height();
             if (r == -1) {
                 perror("Error on height\n");
                 exit(-1);
@@ -139,7 +146,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            char** keys = rtree_get_keys(rtree);
+            char** keys = rtree_get_keys();
             
             if(keys==NULL){
                 printf("Error on getkeys\n");
@@ -162,7 +169,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            void **values = rtree_get_values(rtree);
+            void **values = rtree_get_values();
             if (values == NULL) {
                 printf("Error on getvalues\n");
             } else {
@@ -191,7 +198,7 @@ int main(int argc, char *argv[]) {
 
             int i_op_n;
             sscanf(op_n, "%d", &i_op_n);
-            int r = rtree_verify(rtree, i_op_n);
+            int r = rtree_verify(i_op_n);
 
             if (r == -1) {
                 perror("Error receiving message\n");
