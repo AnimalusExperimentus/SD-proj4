@@ -37,7 +37,7 @@ int network_connect(struct rtree_t *rtree) {
 
     // open connection to server
     if (connect(rtree->sockfd, (const struct sockaddr *) &rtree->server, sizeof(rtree->server)) < 0) {
-        perror("Error - connect opening\n");
+        perror("Attempt to connect to server unsuccessful\n");
         close(rtree->sockfd);
         return -1;
     }

@@ -49,6 +49,8 @@ static int is_connected = 0;
 char *id;
 int id_n;
 char* next_server = NULL;
+int next_server_id = -1;
+struct rtree_t *next_server_rt = NULL;
 static char *watcher_ctx = "ZooKeeper Data Watcher";
 
 
@@ -97,31 +99,88 @@ void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, v
 	}
 }
 
+
 /*
 * Data watcher function for children of /chain
 */
 static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath, void *watcher_ctx) {
 
-	zoo_string* children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-	// int zoo_data_len = ZDATALEN;
-	if (state == ZOO_CONNECTED_STATE) {
-		if (type == ZOO_CHILD_EVENT) {
-	 	   /* Get the updated children and reset the watch */ 
- 			if (ZOK != zoo_wget_children(zh, root_path, child_watcher, watcher_ctx, children_list)) {
- 				fprintf(stderr, "Error setting watch at %s!\n", root_path);
- 			}
-			fprintf(stderr, "\n=== znode listing === [ %s ]", root_path); 
-			for (int i = 0; i < children_list->count; i++)  {
-				fprintf(stderr, "\n(%d): %s", i+1, children_list->data[i]);
-			}
-			fprintf(stderr, "\n=== done ===\n");
+	if (state == ZOO_CONNECTED_STATE && type == ZOO_CHILD_EVENT) {
 
+    	zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
+        zoo_get_children(zh, root_path, 0, children_list);
+        
+        // Check if current next_server has been removed
+        int removed = -1;
+        for (int i = 0; i < children_list->count; i++) {
+            char *temp = strdup(children_list->data[i]);
+            memmove(temp, temp+4, strlen(temp));
+            int curr_id = atoi(temp);
+            if (next_server_id == curr_id) {removed = 0;}
+            free(temp);
+        }
 
+        // Find the next server in the chain to connect to
+        if (removed == -1) {
+            int repl_chain_id = INT_MAX;
+            int index = -1;
+            for (int i = 0; i < children_list->count; i++) {
+                // printf("\n(%d): %s\n", i+1, children_list->data[i]);
+                char *temp = strdup(children_list->data[i]);
+                memmove(temp, temp+4, strlen(temp));
+                int current_id = atoi(temp);
+                if (current_id > id_n && current_id < repl_chain_id) { repl_chain_id = current_id; index = i; }
+                free(temp);
+            }
+            if (repl_chain_id != next_server_id && index != -1) {
+                if (next_server != NULL) {free(next_server);}
+                next_server = strdup(children_list->data[index]);
+                next_server_id = repl_chain_id;
+                
+                // Set up info to open socket to next server
+                char node_path[120] = "";
+                strcat(node_path,"/chain/"); 
+                strcat(node_path, children_list->data[index]);
+                // printf("%s\n", node_path);
+                char data[1024];
+                int len = 1024;
+                if (ZOK != zoo_get(zh, node_path, 0, data, &len, NULL)) {
+                    fprintf(stderr, "Error getting data from node %s!\n", root_path);
+                    exit(EXIT_FAILURE);
+                }
+                char *adr = strtok(data, ":");
+                char *port = strtok(NULL, ":");
+                printf("%s\n", adr);
+                printf("%s\n", port);
+                if (next_server_rt != NULL) {free(next_server_rt);}
+                next_server_rt = malloc(sizeof(struct rtree_t));
+                next_server_rt->server.sin_family = AF_INET;
+                next_server_rt->server.sin_port = htons((short)atoi(port));
+                next_server_rt->server.sin_addr.s_addr = inet_addr(adr);
 
-            
-		 }
-	 }
-	 free(children_list);
+                int r = -1;
+                int rmax = 0;
+                while (r != 0) {
+                    sleep(1);
+                    r = network_connect(next_server_rt);
+                    rmax++;
+                    if (rmax == 10) {exit(EXIT_FAILURE);}
+                }
+                
+                printf("Connected! Replicating to: %s\n", children_list->data[index]);
+            } else { 
+                printf("We are the tail\n"); 
+            }
+        }
+	    
+        free(children_list);
+    }
+
+    // Set watch again
+    if (ZOK != zoo_wget_children(zh, root_path, &child_watcher, watcher_ctx, NULL)) {
+        fprintf(stderr, "Error setting watch at %s!\n", root_path);
+        exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -157,6 +216,24 @@ int zoo_conn(char* host_port) {
         }
     }
 
+    // generate a port for this server
+    zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
+	if (ZOK != zoo_get_children(zh, root_path, 0, children_list)) {exit(EXIT_FAILURE);}
+    int max = 0;
+    for (int i = 0; i < children_list->count; i++) {
+        char *temp = strdup(children_list->data[i]);
+        memmove(temp, temp+4, strlen(temp));
+        int n = atoi(temp);
+        if (n > max) { max = n; }
+        free(temp);
+    }
+    free(children_list);
+    if (max != 0) {serv_port += max+1;}
+    char port_str[10];
+    sprintf(port_str, "%d", serv_port);
+    strcat(serv_addr, ":");
+    strcat(serv_addr, port_str);
+
     // Create new node /chain/node000000x for this server
     char node_path[120] = "";
     strcat(node_path,root_path); 
@@ -164,30 +241,19 @@ int zoo_conn(char* host_port) {
     int new_path_len = 1024;
     char* new_path = malloc (new_path_len);
     
-    if (ZOK != zoo_create(zh, node_path, "", 10, & ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL | ZOO_SEQUENCE, new_path, new_path_len)) {
+    if (ZOK != zoo_create(zh, node_path, serv_addr, strlen(serv_addr)+1, & ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL | ZOO_SEQUENCE, new_path, new_path_len)) {
         fprintf(stderr, "Error creating znode from path %s!\n", node_path);
         exit(EXIT_FAILURE);
     }
     fprintf(stderr, "Ephemeral Sequencial ZNode created! ZNode path: %s\n", new_path);
-    sleep(1);
-    
-    // Set the ip:port for this server from the node id
+    printf("This server's unique address: %s\n", serv_addr);
     id = strdup(new_path);
     memmove(new_path, new_path+11, strlen(new_path));
     id_n = atoi(new_path);
-    serv_port += id_n;
-    char port_str[10];
-    sprintf(port_str, "%d", serv_port);
-    strcat(serv_addr, ":");
-    strcat(serv_addr, port_str);
-    if (ZOK != zoo_set(zh, id, serv_addr, strlen(serv_addr)+1, -1)) {
-        fprintf(stderr, "Error setting data in znode from path %s!\n", new_path);
-        exit(EXIT_FAILURE);
-    }
-    
-    printf("This server's unique address: %s\n", serv_addr);
     free(serv_addr);
     free(new_path);
+    
+    sleep(1);
 
     // Set watch for children nodes
     if (ZOK != zoo_wget_children(zh, root_path, &child_watcher, watcher_ctx, NULL)) {
@@ -280,6 +346,8 @@ void *process_request (void *params) {
         }
         pthread_mutex_unlock(&op_proc_lock);
 
+
+        // TODO? replicate request to next node
         next_server = malloc(sizeof(struct rtree_t));
 
         next_server->server.sin_family = AF_INET;
