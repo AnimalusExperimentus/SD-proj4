@@ -11,6 +11,14 @@
 #include "sdmessage.pb-c.h"
 #include "tree.h"
 
+/*
+* Connects to Zookeeper
+* creates /chain if it doesn't exist
+* creates /chain/node for this server
+* returns the port to use for this server
+*/
+int zoo_conn(char* host_port);
+
 /* Inicia o skeleton da árvore.
  * O main() do servidor deve chamar esta função antes de poder usar a
  * função invoke().

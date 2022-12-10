@@ -11,7 +11,6 @@ typedef struct String_vector zoo_string;
 #include "../include/client_stub_private.h"
 #include "../include/sdmessage.pb-c.h"
 #include "../include/data.h"
-#include "../include/zookeep.h"
 #include "/usr/include/zookeeper/zookeeper.h"
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -42,9 +41,9 @@ void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, v
 }
 
 
-void start_conn(locaHost){
-    host_port=locaHost;
-    zh = zookeeper_init(locaHost, connection_watcher,	2000, 0, NULL, 0); 
+void start_conn(char *host_port){
+
+    zh = zookeeper_init(host_port, connection_watcher,	2000, 0, NULL, 0); 
 	if (zh == NULL)	{
 		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
 	    exit(EXIT_FAILURE);
@@ -96,8 +95,8 @@ int rtree_connect() {
 
 
     if (ZOK != zoo_wget_children(zh, root_path, &child_watcher, watcher_ctx, children_list)) {
-				fprintf(stderr, "Error setting watch at %s!\n", root_path);
-			}
+        fprintf(stderr, "Error setting watch at %s!\n", root_path);
+    }
 
     char copAdr [strlen(children_list->data[0])-15];
     strcpy(copAdr,&children_list->data[0][14]);

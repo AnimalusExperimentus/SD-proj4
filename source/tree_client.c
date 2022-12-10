@@ -7,7 +7,6 @@
 
 #include "../include/client_stub.h"
 #include "../include/entry.h"
-#include "../include/zookeep.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,7 +26,7 @@ int main(int argc, char *argv[]) {
     start_conn(addr);
     
     // Establish connection with server
-    int conn= rtree_connect();
+    int conn = rtree_connect();
     if (conn == NULL) {
         perror("Error connecting to server\n");
         exit(-1);
