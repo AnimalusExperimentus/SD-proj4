@@ -137,11 +137,10 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
                 next_server = strdup(children_list->data[index]);
                 next_server_id = repl_chain_id;
                 
-                // Set up info to open socket to next server
+                // Get serv info and connect to next server
                 char node_path[120] = "";
                 strcat(node_path,"/chain/"); 
                 strcat(node_path, children_list->data[index]);
-                // printf("%s\n", node_path);
                 char data[1024];
                 int len = 1024;
                 if (ZOK != zoo_get(zh, node_path, 0, data, &len, NULL)) {
@@ -150,8 +149,6 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
                 }
                 char *adr = strtok(data, ":");
                 char *port = strtok(NULL, ":");
-                printf("%s\n", adr);
-                printf("%s\n", port);
                 if (next_server_rt != NULL) {free(next_server_rt);}
                 next_server_rt = malloc(sizeof(struct rtree_t));
                 next_server_rt->server.sin_family = AF_INET;
@@ -159,12 +156,12 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
                 next_server_rt->server.sin_addr.s_addr = inet_addr(adr);
 
                 int r = -1;
-                int rmax = 0;
+                int timeout = 0;
                 while (r != 0) {
                     sleep(1);
                     r = network_connect(next_server_rt);
-                    rmax++;
-                    if (rmax == 10) {exit(EXIT_FAILURE);}
+                    timeout++;
+                    if (timeout == 10) {exit(EXIT_FAILURE);}
                 }
                 
                 printf("Connected! Replicating to: %s\n", children_list->data[index]);
