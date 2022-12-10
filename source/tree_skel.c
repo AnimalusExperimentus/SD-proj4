@@ -345,46 +345,46 @@ void *process_request (void *params) {
 
 
         // TODO? replicate request to next node
-        next_server = malloc(sizeof(struct rtree_t));
+        if (next_server_rt != NULL) {
+            // TODO
+            
+            // for(int i = 0 ; i < children_list->count; i++) {
 
-        next_server->server.sin_family = AF_INET;
+            //     if(children_list->data[i] < id) {
 
-        for(int i = 0 ; i < children_list->count; i++) {
+            //         char copAdr [strlen(children_list->data[i])-15];
+            //         strcpy(copAdr, &children_list->data[i][14]);
+            //         char *adr = strtok(copAdr, ":");
+            //         char* ptr;
+            //         int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
+            //         next_server->server.sin_port = htons(port);
+            //         next_server->server.sin_addr.s_addr = inet_addr(adr);
 
-            if(children_list->data[i] < id) {
-
-                char copAdr [strlen(children_list->data[i])-15];
-                strcpy(copAdr, &children_list->data[i][14]);
-                char *adr = strtok(copAdr, ":");
-                char* ptr;
-                int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
-                next_server->server.sin_port = htons(port);
-                next_server->server.sin_addr.s_addr = inet_addr(adr);
-
-                MessageT msg = MESSAGE_T__INIT;
-                msg.opcode = MESSAGE_T__OPCODE__OP_PUT;
-                msg.c_type = MESSAGE_T__C_TYPE__CT_ENTRY;
-                if(request->op==0){
-             
-                int len = strlen(request->key)+1;
-                msg.key = malloc(len);
-                memcpy(msg.key, request->key, len);
-                msg.size = len;
-                }else{
-                msg.key = malloc(strlen(request->key)+1);
-                memcpy(msg.key, request->key, strlen(request->key)+1);
-                msg.size = strlen(request->key)+1;
-                msg.data.len = request->data->datasize;
-                msg.data.data = malloc(request->data->datasize);
-                memcpy(msg.data.data, request->data->data, request->data->datasize);
-                }
-              
-                network_connect(next_server);
-                network_send_receive(next_server,&msg);
-                free(msg.key);
-                network_close(next_server);
-                break;
-            }
+            //         MessageT msg = MESSAGE_T__INIT;
+            //         msg.opcode = MESSAGE_T__OPCODE__OP_PUT;
+            //         msg.c_type = MESSAGE_T__C_TYPE__CT_ENTRY;
+            //         if(request->op==0){
+                
+            //         int len = strlen(request->key)+1;
+            //         msg.key = malloc(len);
+            //         memcpy(msg.key, request->key, len);
+            //         msg.size = len;
+            //         }else{
+            //         msg.key = malloc(strlen(request->key)+1);
+            //         memcpy(msg.key, request->key, strlen(request->key)+1);
+            //         msg.size = strlen(request->key)+1;
+            //         msg.data.len = request->data->datasize;
+            //         msg.data.data = malloc(request->data->datasize);
+            //         memcpy(msg.data.data, request->data->data, request->data->datasize);
+            //         }
+                
+            //         network_connect(next_server);
+            //         network_send_receive(next_server,&msg);
+            //         free(msg.key);
+            //         network_close(next_server);
+            //         break;
+            //     }
+            // }
         }
 
 
