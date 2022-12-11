@@ -23,7 +23,6 @@ int main(int argc, char *argv[]) {
     char *host_port = argv[1];
     client_zoo_conn(host_port);
 
-    printf("Connected to chain!\n");
     printf("> ");
 
     char line[BUFFERLEN];

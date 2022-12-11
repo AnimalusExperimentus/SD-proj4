@@ -21,60 +21,109 @@ typedef struct String_vector zoo_string;
 #define ZDATALEN 1024 * 1024
 
 static zhandle_t *c_zh;
-static char *c_root_path = "/chain";
-static int is_connected;
+static char *root_path = "/chain";
 
 struct rtree_t *rtree_head = NULL;
 struct rtree_t *rtree_tail = NULL;
-// static char *c_watcher_ctx = "ZooKeeper Data Watcher";
+int head_n = -1;
+int tail_n = -1;
+static char *c_watcher_ctx = "ZooKeeper Data Watcher";
 
-//  zookeeper_close(zh);
 
 /*
-* Watcher function for connection state change events
+* Finds and connects to head and tail of chain
+* updating if necessary
 */
-void conn_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
-	if (type == ZOO_SESSION_EVENT) {
-		if (state == ZOO_CONNECTED_STATE) {
-			is_connected = 1; 
-		} else {
-			is_connected = 0; 
-		}
-	}
+void update_head_tail() {
+
+    // find head and tail servers of the chain
+    zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
+	if (ZOK != zoo_get_children(c_zh, root_path, 0, children_list)) {exit(EXIT_FAILURE);}
+    if (children_list->count == 0) {
+        if (rtree_head != NULL) {free(rtree_head);}
+        if (rtree_tail != NULL) {free(rtree_tail);}
+        printf("\nNo servers on the chain!\n");
+        exit(EXIT_SUCCESS);
+    }
+    int max = INT_MIN;
+    int min = INT_MAX;
+    int head_i = 0; int tail_i = 0;
+    for (int i = 0; i < children_list->count; i++) {
+        char *temp = strdup(children_list->data[i]);
+        memmove(temp, temp+4, strlen(temp));
+        int n = atoi(temp);
+        if (n > max) { max = n; tail_i = i;}
+        if (n < min) { min = n; head_i = i;}
+        free(temp);
+    }
+
+    // we found a new head
+    if (head_n != min) {
+        if (rtree_head != NULL) {free(rtree_head);}
+        
+        char h_node_path[120] = "";
+        strcat(h_node_path,"/chain/"); 
+        strcat(h_node_path, children_list->data[head_i]);
+        char h_data[1024];
+        int h_len = 1024;
+        if (ZOK != zoo_get(c_zh, h_node_path, 0, h_data, &h_len, NULL)) {exit(EXIT_FAILURE);}
+
+        rtree_head = rtree_connect(h_data);
+        head_n = min;
+        printf("\nConnected to new HEAD node: %s %i\n", h_data, head_n);
+    }
+
+    // we found a new tail
+    if (tail_n != max) {
+        if (rtree_tail != NULL) {free(rtree_tail);}
+        
+        char t_node_path[120] = "";
+        strcat(t_node_path,"/chain/");
+        strcat(t_node_path, children_list->data[tail_i]);
+        char t_data[1024];
+        int t_len = 1024;
+        if (ZOK != zoo_get(c_zh, t_node_path, 0, t_data, &t_len, NULL)) {exit(EXIT_FAILURE);}
+        
+        rtree_tail = rtree_connect(t_data);
+        tail_n = max;
+        printf("\nConnected to new TAIL node: %s %i\n", t_data, tail_n);
+    }
+
+    if (rtree_head == NULL || rtree_tail == NULL) {
+        printf("Error connecting to chain\n");
+        exit(EXIT_FAILURE);
+    }
+
+    free(children_list);
 }
+
 
 /*
 * Client data watcher function for children of /chain
 */
-// static void c_child_watcher(zhandle_t *wzh, int type, int state, const char *zpath, void *c_watcher_ctx) {
-// 	zoo_string* children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-// 	// int zoo_data_len = ZDATALEN;
-// 	if (state == ZOO_CONNECTED_STATE)	 {
-// 		if (type == ZOO_CHILD_EVENT) {
-// 	 	   /* Get the updated children and reset the watch */ 
-//  			if (ZOK != zoo_wget_children(c_zh, c_root_path, c_child_watcher, c_watcher_ctx, children_list)) {
-//  				fprintf(stderr, "Error setting watch at %s!\n", c_root_path);
-//  			}
-// 			fprintf(stderr, "\n=== znode listing === [ %s ]", c_root_path); 
-// 			for (int i = 0; i < children_list->count; i++)  {
-// 				fprintf(stderr, "\n(%d): %s", i+1, children_list->data[i]);
-// 			}
-// 			fprintf(stderr, "\n=== done ===\n");
-// 		 } 
-// 	 }
-// 	 free(children_list);
-// }
+static void c_child_watcher(zhandle_t *wzh, int type, int state, const char *zpath, void *c_watcher_ctx) {
+
+    if (state == ZOO_CONNECTED_STATE && type == ZOO_CHILD_EVENT) {
+        update_head_tail();
+        fprintf(stderr, "\n> ");
+    }
+    
+    // Set watch again
+    if (ZOK != zoo_wget_children(c_zh, root_path, &c_child_watcher, c_watcher_ctx, NULL)) {
+        fprintf(stderr, "Error setting watch at %s!\n", root_path);
+        exit(EXIT_FAILURE);
+    }
+}
 
 
 /*
 * Connects to Zookeeper
-* find and connect to head and tail of chain
 */
 void client_zoo_conn(char *host_port) {
 
     // Connect to running Zookeeper Server
     zoo_set_debug_level((ZooLogLevel)0);
-    c_zh = zookeeper_init(host_port, conn_watcher, 2000, 0, NULL, 0); 
+    c_zh = zookeeper_init(host_port, NULL, 2000, 0, NULL, 0); 
     if (c_zh == NULL)	{
         fprintf(stderr, "Error connecting to ZooKeeper server!\n");
         exit(EXIT_FAILURE);
@@ -83,45 +132,22 @@ void client_zoo_conn(char *host_port) {
     }
     sleep(1);
 
-    // find head and tail servers of the chain
-    zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-	if (ZOK != zoo_get_children(c_zh, c_root_path, 0, children_list)) {exit(EXIT_FAILURE);}
-    int max = 0;
-    int head_i = 0;
-    int tail_i = 0;
-    int min = INT_MAX;
-    for (int i = 0; i < children_list->count; i++) {
-        char *temp = strdup(children_list->data[i]);
-        memmove(temp, temp+4, strlen(temp));
-        int n = atoi(temp);
-        if (n > max) { max = n; head_i = i;}
-        if (n < min) { min = n; tail_i = i;}
-        free(temp);
-    }
+    update_head_tail();
 
-    // get head and tail host:port and connect to them
-    char h_node_path[120] = ""; char t_node_path[120] = "";
-    strcat(h_node_path,"/chain/"); 
-    strcat(h_node_path, children_list->data[head_i]);
-    strcat(t_node_path,"/chain/"); 
-    strcat(t_node_path, children_list->data[tail_i]);
-    char h_data[1024]; char t_data[1024];
-    int h_len = 1024; int t_len = 1024;
-    if (ZOK != zoo_get(c_zh, h_node_path, 0, h_data, &h_len, NULL)) {exit(EXIT_FAILURE);}
-    if (ZOK != zoo_get(c_zh, t_node_path, 0, t_data, &t_len, NULL)) {exit(EXIT_FAILURE);}
-    free(children_list);
-    
-    printf("Head: %s\n", h_data);
-    printf("Tail: %s\n", t_data);
-
-    rtree_head = rtree_connect(h_data);
-    rtree_tail = rtree_connect(t_data);
-    if (rtree_head == NULL || rtree_tail == NULL) {
-        printf("Error connecting to chain\n");
+    // Set watch for children nodes
+    if (ZOK != zoo_wget_children(c_zh, root_path, &c_child_watcher, c_watcher_ctx, NULL)) {
+        fprintf(stderr, "Error setting watch at %s!\n", root_path);
         exit(EXIT_FAILURE);
     }
 }
 
+
+/*
+* Close Zookeper connection
+*/
+void close_zookeeper() {
+    zookeeper_close(c_zh);
+}
 
 // -----------------------------------------------------------------------------------------------------
 
@@ -131,7 +157,7 @@ void client_zoo_conn(char *host_port) {
  */
 struct rtree_t *rtree_connect(const char *address_port) {
     
-    if(address_port == NULL){
+    if(address_port == NULL) {
         return NULL;
     }
 
@@ -180,7 +206,6 @@ int rtree_disconnect() {
 }
 
 
-//-------------------------------------------------------------------------------
 /* Função para adicionar um elemento na árvore.
  * Se a key já existe, vai substituir essa entrada pelos novos dados.
  * Devolve 0 (ok, em adição/substituição) ou -1 (problemas).
@@ -221,6 +246,7 @@ int rtree_put(struct entry_t *entry, struct rtree_t *rtree) {
 int rtree_put_aux(struct entry_t *entry) {
     return rtree_put(entry, rtree_head);
 }
+
 
 /* Função para obter um elemento da árvore.
  * Em caso de erro, devolve NULL.
@@ -301,6 +327,7 @@ int rtree_del(char *key, struct rtree_t *rtree) {
 int rtree_del_aux(char *key) {
     return rtree_del(key, rtree_head);
 }
+
 
 /* Devolve o número de elementos contidos na árvore.
  */

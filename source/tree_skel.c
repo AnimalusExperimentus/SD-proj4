@@ -110,7 +110,10 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
 	if (state == ZOO_CONNECTED_STATE && type == ZOO_CHILD_EVENT) {
 
     	zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-        zoo_get_children(zh, root_path, 0, children_list);
+        if ( ZOK != zoo_get_children(zh, root_path, 0, children_list)) {
+            printf("Error getting children list\n");
+            exit(EXIT_FAILURE);
+        }
         
         // Check if current next_server has been removed
         int removed = -1;

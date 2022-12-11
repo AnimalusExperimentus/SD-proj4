@@ -21,6 +21,11 @@ struct rtree_t;
 */
 void client_zoo_conn(char *host_port);
 
+/*
+* Close Zookeper connection
+*/
+void close_zookeeper();
+
 /* Função para estabelecer uma associação entre o cliente e o servidor, 
  * em que address_port é uma string no formato <hostname>:<port>.
  * Retorna NULL em caso de erro.
