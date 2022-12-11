@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFERLEN 4096
 
@@ -32,7 +33,6 @@ int main(int argc, char *argv[]) {
         printf("\n");
         if (strcmp(command, "quit") == 0) {
             rtree_disconnect();
-            // disc_zoo();
             break;
         // PUT -----------------------------------------------------
         } else if (strcmp(command, "put") == 0) {
@@ -47,14 +47,25 @@ int main(int argc, char *argv[]) {
             struct data_t *d = data_create(strlen(data)+1);
             memcpy(d->data, data, strlen(data)+1);
             struct entry_t *e = entry_create(key, d);
+            
             int r = rtree_put_aux(e);
-            entry_destroy(e);
-
             if (r > 0) { 
-                printf("Created request on server with number: %i\n", r); 
+                printf("Created request on server with number: %i\n", r);
             } else {
-                printf("Error on creating server request\n"); 
+                printf("Error on creating server request\n");
+                entry_destroy(e);
+                continue;
             }
+            int v; 
+            int timeout = 2;
+            sleep(timeout);
+            while( (v = rtree_verify(r)) != 0 ) {
+                printf("Retrying...\n");
+                rtree_put_aux(e);
+                sleep(timeout);
+            }
+            printf("Request verified and replicated sucessfully\n");
+            entry_destroy(e);
 
         // GET -----------------------------------------------------
         } else if (strcmp(command, "get") == 0) {
@@ -91,7 +102,17 @@ int main(int argc, char *argv[]) {
                 printf("Created request on server with number: %i\n", r);
             }else {
               printf("Error on creating server request\n");
+              continue;
             }
+            int v;
+            int timeout = 2;
+            sleep(timeout);
+            while( (v = rtree_verify(r) != 0)) {
+                printf("Retrying...\n");
+                rtree_del_aux(key);
+                sleep(timeout);
+            }
+            printf("Request verified and replicated sucessfully\n");
 
         // SIZE ---------------------------------------------------
         } else if (strcmp(command, "size") == 0) {

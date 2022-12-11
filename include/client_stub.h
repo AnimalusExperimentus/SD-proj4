@@ -17,14 +17,9 @@ struct rtree_t;
 
 /*
 * Connects to Zookeeper
-* find and connect to head and tail of chain
+* finds and connects to head and tail servers of chain
 */
 void client_zoo_conn(char *host_port);
-
-/*
-* Close Zookeper connection
-*/
-void close_zookeeper();
 
 /* Função para estabelecer uma associação entre o cliente e o servidor, 
  * em que address_port é uma string no formato <hostname>:<port>.

@@ -118,6 +118,7 @@ static void c_child_watcher(zhandle_t *wzh, int type, int state, const char *zpa
 
 /*
 * Connects to Zookeeper
+* finds and connects to head and tail servers of chain
 */
 void client_zoo_conn(char *host_port) {
 
@@ -142,14 +143,8 @@ void client_zoo_conn(char *host_port) {
 }
 
 
-/*
-* Close Zookeper connection
-*/
-void close_zookeeper() {
-    zookeeper_close(c_zh);
-}
-
 // -----------------------------------------------------------------------------------------------------
+
 
 /* Função para estabelecer uma associação entre o cliente e o servidor,
  * em que address_port é uma string no formato <hostname>:<port>.
@@ -194,6 +189,9 @@ struct rtree_t *rtree_connect(const char *address_port) {
  * Retorna 0 se tudo correr bem e -1 em caso de erro.
  */
 int rtree_disconnect() {
+
+    zookeeper_close(c_zh);
+
     if (rtree_head == NULL || rtree_tail == NULL) {
         return -1;
     }

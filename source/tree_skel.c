@@ -130,7 +130,6 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
             int repl_chain_id = INT_MAX;
             int index = -1;
             for (int i = 0; i < children_list->count; i++) {
-                // printf("\n(%d): %s\n", i+1, children_list->data[i]);
                 char *temp = strdup(children_list->data[i]);
                 memmove(temp, temp+4, strlen(temp));
                 int current_id = atoi(temp);
@@ -466,6 +465,8 @@ void tree_skel_destroy() {
     }
 
     zookeeper_close(zh);
+    if (next_server != NULL) {free(next_server);}
+    if (next_server_rt != NULL) {free(next_server_rt);}
 }
 
 
