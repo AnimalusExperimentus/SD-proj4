@@ -15,14 +15,20 @@
  */
 struct rtree_t;
 
+/*
+* Connects to Zookeeper
+* find and connect to head and tail of chain
+*/
+void client_zoo_conn(char *host_port);
+
 /* Função para estabelecer uma associação entre o cliente e o servidor, 
  * em que address_port é uma string no formato <hostname>:<port>.
  * Retorna NULL em caso de erro.
  */
-int rtree_connect();
+struct rtree_t *rtree_connect(const char *address_port);
 
-/* Termina a associação entre o cliente e o servidor, fechando a 
- * ligação com o servidor e libertando toda a memória local.
+/* Termina a associação entre o cliente e os servidores, fechando as
+ * ligaçoes e libertando toda a memória local.
  * Retorna 0 se tudo correr bem e -1 em caso de erro.
  */
 int rtree_disconnect();
@@ -32,6 +38,7 @@ int rtree_disconnect();
  * Devolve 0 (ok, em adição/substituição) ou -1 (problemas).
  */
 int rtree_put(struct entry_t *entry, struct rtree_t *rtree);
+int rtree_put_aux(struct entry_t *entry);
 
 /* Função para obter um elemento da árvore.
  * Em caso de erro, devolve NULL.
@@ -43,6 +50,7 @@ struct data_t *rtree_get(char *key);
  * Devolve: 0 (ok), -1 (key not found ou problemas).
  */
 int rtree_del(char *key, struct rtree_t *rtree);
+int rtree_del_aux(char *key);
 
 /* Devolve o número de elementos contidos na árvore.
  */

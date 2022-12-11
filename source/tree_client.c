@@ -13,38 +13,27 @@
 
 #define BUFFERLEN 4096
 
-
 int main(int argc, char *argv[]) {
 
     if (argc != 2) {
-        printf("Client takes 1 argument: <Server>:<Port>\n");
+        printf("Client takes 1 argument: <Host:Port> of Zookeper\n");
         exit(-1);
     }
 
-    const char *addr = strtok(argv[1], " \n");  
+    char *host_port = argv[1];
+    client_zoo_conn(host_port);
 
-    start_conn(addr);
-    
-    // Establish connection with server
-    int conn = rtree_connect();
-    if (conn == NULL) {
-        perror("Error connecting to server\n");
-        exit(-1);
-    }
-    printf("Connected to server!\n");
+    printf("Connected to chain!\n");
     printf("> ");
 
     char line[BUFFERLEN];
     while(fgets(line, BUFFERLEN, stdin)) {
-        rtree_disconnect();
-        int conn= rtree_connect();
-
 
         char* command = strtok(line, " \n");
         printf("\n");
         if (strcmp(command, "quit") == 0) {
             rtree_disconnect();
-            disc_zoo();
+            // disc_zoo();
             break;
         // PUT -----------------------------------------------------
         } else if (strcmp(command, "put") == 0) {
@@ -59,7 +48,7 @@ int main(int argc, char *argv[]) {
             struct data_t *d = data_create(strlen(data)+1);
             memcpy(d->data, data, strlen(data)+1);
             struct entry_t *e = entry_create(key, d);
-            int r = rtree_put(e);
+            int r = rtree_put_aux(e);
             entry_destroy(e);
 
             if (r > 0) { 
@@ -98,7 +87,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             
-            int r = rtree_del( key);
+            int r = rtree_del_aux(key);
             if(r > 0) {
                 printf("Created request on server with number: %i\n", r);
             }else {

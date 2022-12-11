@@ -223,7 +223,7 @@ int zoo_conn(char* host_port) {
     // generate a port for this server to avoid collision
     zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
 	if (ZOK != zoo_get_children(zh, root_path, 0, children_list)) {exit(EXIT_FAILURE);}
-    int max = 0;
+    int max = -1;
     for (int i = 0; i < children_list->count; i++) {
         char *temp = strdup(children_list->data[i]);
         memmove(temp, temp+4, strlen(temp));
@@ -232,7 +232,7 @@ int zoo_conn(char* host_port) {
         free(temp);
     }
     free(children_list);
-    if (max != 0) {serv_port += max+1;}
+    if (max >= 0) {serv_port += max+1;}
     char port_str[10];
     sprintf(port_str, "%d", serv_port);
     strcat(serv_addr, ":");
