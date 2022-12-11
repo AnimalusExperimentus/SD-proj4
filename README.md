@@ -4,6 +4,7 @@
 Precisa das libs: 
 
 > sudo apt-get install -y protobuf-compiler protobuf-c-compiler libprotobuf-c-dev
+
 > sudo apt-get install -y libzookeeper-mt-dev
 
 e portanto de ter ficheiro protobuf de linking:
