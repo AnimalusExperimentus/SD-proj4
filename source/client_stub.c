@@ -7,43 +7,32 @@
 
 typedef struct String_vector zoo_string; 
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include "../include/network_client.h"
 #include "../include/client_stub_private.h"
 #include "../include/sdmessage.pb-c.h"
 #include "../include/data.h"
 #include "/usr/include/zookeeper/zookeeper.h"
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include "string.h"
 
 #define ZDATALEN 1024 * 1024
 
 
 static zhandle_t *zh;
-static char *host_port;
 static char *root_path = "/chain";
-static int is_connected;
+// static int is_connected;
 
 struct rtree_t *rtreeHead;
 struct rtree_t *rtreeTail;
 static char *watcher_ctx = "ZooKeeper Data Watcher";
 
 
-void connection_watcher(zhandle_t *zzh, int type, int state, const char *path, void* context) {
-	if (type == ZOO_SESSION_EVENT) {
-		if (state == ZOO_CONNECTED_STATE) {
-			is_connected = 1; 
-		} else {
-			is_connected = 0; 
-		}
-	}
-}
+void start_conn(char *host_port) {
 
-
-void start_conn(char *host_port){
-
-    zh = zookeeper_init(host_port, connection_watcher,	2000, 0, NULL, 0); 
+    zh = zookeeper_init(host_port, NULL,	2000, 0, NULL, 0); 
 	if (zh == NULL)	{
 		fprintf(stderr, "Error connecting to ZooKeeper server!\n");
 	    exit(EXIT_FAILURE);
@@ -54,7 +43,7 @@ void start_conn(char *host_port){
 
 static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath, void *watcher_ctx) {
 	zoo_string* children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-	int zoo_data_len = ZDATALEN;
+	// int zoo_data_len = ZDATALEN;
 	if (state == ZOO_CONNECTED_STATE)	 {
 		if (type == ZOO_CHILD_EVENT) {
 	 	   /* Get the updated children and reset the watch */ 
@@ -169,7 +158,7 @@ int rtree_disconnect() {
  * Se a key já existe, vai substituir essa entrada pelos novos dados.
  * Devolve 0 (ok, em adição/substituição) ou -1 (problemas).
  */
-int rtree_put( struct entry_t *entry) {
+int rtree_put(struct entry_t *entry, struct rtree_t *rtree) {
 
     // create and fill message with entry
     MessageT msg = MESSAGE_T__INIT;
@@ -184,7 +173,7 @@ int rtree_put( struct entry_t *entry) {
     memcpy(msg.data.data, entry->value->data, entry->value->datasize);
 
     // send and receive response
-    MessageT *msg_rcv = network_send_receive(rtreeHead, &msg);
+    MessageT *msg_rcv = network_send_receive(rtree, &msg);
     free(msg.key);
     free(msg.data.data);
     if (msg_rcv == NULL) {
@@ -249,7 +238,7 @@ struct data_t *rtree_get( char *key) {
  * toda a memoria alocada na respetiva operação rtree_put().
  * Devolve: 0 (ok), -1 (key not found ou problemas).
  */
-int rtree_del( char *key){
+int rtree_del(char *key, struct rtree_t *rtree) {
 
     // create message
     MessageT msg = MESSAGE_T__INIT;
@@ -262,7 +251,7 @@ int rtree_del( char *key){
     msg.size = len;
 
     // send msg and receive response
-    MessageT *msg_rcv = network_send_receive(rtreeHead, &msg);
+    MessageT *msg_rcv = network_send_receive(rtree, &msg);
     free(msg.key);
 
     if (msg_rcv == NULL) {

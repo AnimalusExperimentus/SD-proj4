@@ -31,18 +31,18 @@ int rtree_disconnect();
  * Se a key já existe, vai substituir essa entrada pelos novos dados.
  * Devolve 0 (ok, em adição/substituição) ou -1 (problemas).
  */
-int rtree_put( struct entry_t *entry);
+int rtree_put(struct entry_t *entry, struct rtree_t *rtree);
 
 /* Função para obter um elemento da árvore.
  * Em caso de erro, devolve NULL.
  */
-struct data_t *rtree_get( char *key);
+struct data_t *rtree_get(char *key);
 
 /* Função para remover um elemento da árvore. Vai libertar 
  * toda a memoria alocada na respetiva operação rtree_put().
  * Devolve: 0 (ok), -1 (key not found ou problemas).
  */
-int rtree_del( char *key);
+int rtree_del(char *key, struct rtree_t *rtree);
 
 /* Devolve o número de elementos contidos na árvore.
  */

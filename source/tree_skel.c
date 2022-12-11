@@ -22,6 +22,7 @@
 #include "../include/entry.h"
 #include "../include/network_client.h"
 #include "../include/client_stub_private.h"
+#include "../include/client_stub.h"
 
 #define ZDATALEN 1024 * 1024
 
@@ -43,26 +44,27 @@ pthread_mutex_t tree_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t op_proc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static zhandle_t *zh;
-// static char *host_port;
+static char *watcher_ctx = "ZooKeeper Data Watcher";
 static char *root_path = "/chain";
 static int is_connected = 0;
 char *id;
 int id_n;
+
 char* next_server = NULL;
 int next_server_id = -1;
 struct rtree_t *next_server_rt = NULL;
-static char *watcher_ctx = "ZooKeeper Data Watcher";
 
+// ------------------------------------------------------------------------------------------------------------
 
 /*
 * Aux function to get local ip of this machine
 */
-char *get_ip()
-{
+char *get_ip() {
+
     // Read out "hostname -I" command output
     FILE *fd = popen("hostname -I", "r");
     if(fd == NULL) {
-        fprintf(stderr, "Could not open pipe.\n");
+        fprintf(stderr, "Could not open pipe trying to read host ip.\n");
         exit(EXIT_FAILURE);
     }
     // Put output into a string (static memory)
@@ -120,7 +122,7 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
             free(temp);
         }
 
-        // Find the next server in the chain to connect to
+        // if next server has been removed or doesn't exist yet:
         if (removed == -1) {
             int repl_chain_id = INT_MAX;
             int index = -1;
@@ -132,6 +134,7 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
                 if (current_id > id_n && current_id < repl_chain_id) { repl_chain_id = current_id; index = i; }
                 free(temp);
             }
+            // if we found a new server we should be replicating to:
             if (repl_chain_id != next_server_id && index != -1) {
                 if (next_server != NULL) {free(next_server);}
                 next_server = strdup(children_list->data[index]);
@@ -165,8 +168,12 @@ static void child_watcher(zhandle_t *wzh, int type, int state, const char *zpath
                 }
                 
                 printf("Connected! Replicating to: %s\n", children_list->data[index]);
+            // if not, we are the tail.
             } else { 
-                printf("We are the tail\n"); 
+                free(next_server);
+                if (next_server_rt != NULL) {free(next_server_rt);}
+                next_server_id = -1;
+                printf("We are the tail\n");
             }
         }
 	    
@@ -213,7 +220,7 @@ int zoo_conn(char* host_port) {
         }
     }
 
-    // generate a port for this server
+    // generate a port for this server to avoid collision
     zoo_string *children_list =	(zoo_string *) malloc(sizeof(zoo_string));
 	if (ZOK != zoo_get_children(zh, root_path, 0, children_list)) {exit(EXIT_FAILURE);}
     int max = 0;
@@ -300,25 +307,17 @@ struct request_t *queue_get_request() {
 }
 
 
-/* Funcao da thread secundaria que vai processar pedidos de escrita
+/* 
+* Funcao da thread secundaria que vai processar pedidos de escrita
 */
 void *process_request (void *params) {
 
     // pthread_detach(pthread_self());
     int thread_n = *((int*)params);
-    zoo_string* children_list =	NULL;
-    struct rtree_t *next_server;
-
-
     struct request_t *request;
 
     while (true) {
 
-        // children_list =	(zoo_string *) malloc(sizeof(zoo_string));
-        // if (ZOK != zoo_wget_children(zh, root_path, &child_watcher, watcher_ctx, children_list)) {
-        //     fprintf(stderr, "Error setting watch at %s!\n", root_path);
-		// }
-        
         request = queue_get_request();
         if (request == NULL) { break; } // ctrl^c
         int op_n = request->op_n;
@@ -344,57 +343,23 @@ void *process_request (void *params) {
         pthread_mutex_unlock(&op_proc_lock);
 
 
-        // TODO? replicate request to next node
-        if (next_server_rt != NULL) {
-            // TODO
+        // Replicate request to next node
+        if (next_server_id != -1) {
             
-            // for(int i = 0 ; i < children_list->count; i++) {
-
-            //     if(children_list->data[i] < id) {
-
-            //         char copAdr [strlen(children_list->data[i])-15];
-            //         strcpy(copAdr, &children_list->data[i][14]);
-            //         char *adr = strtok(copAdr, ":");
-            //         char* ptr;
-            //         int port = (int) strtol( strtok(NULL,"\0"), &ptr, 10);
-            //         next_server->server.sin_port = htons(port);
-            //         next_server->server.sin_addr.s_addr = inet_addr(adr);
-
-            //         MessageT msg = MESSAGE_T__INIT;
-            //         msg.opcode = MESSAGE_T__OPCODE__OP_PUT;
-            //         msg.c_type = MESSAGE_T__C_TYPE__CT_ENTRY;
-            //         if(request->op==0){
-                
-            //         int len = strlen(request->key)+1;
-            //         msg.key = malloc(len);
-            //         memcpy(msg.key, request->key, len);
-            //         msg.size = len;
-            //         }else{
-            //         msg.key = malloc(strlen(request->key)+1);
-            //         memcpy(msg.key, request->key, strlen(request->key)+1);
-            //         msg.size = strlen(request->key)+1;
-            //         msg.data.len = request->data->datasize;
-            //         msg.data.data = malloc(request->data->datasize);
-            //         memcpy(msg.data.data, request->data->data, request->data->datasize);
-            //         }
-                
-            //         network_connect(next_server);
-            //         network_send_receive(next_server,&msg);
-            //         free(msg.key);
-            //         network_close(next_server);
-            //         break;
-            //     }
-            // }
+            if (request->op == 0) {
+                rtree_del(request->key, next_server_rt);
+            } else {
+                struct entry_t *entry = entry_create(request->key, request->data);
+                rtree_put(entry, next_server_rt);
+                free(entry);
+            }
         }
-
 
         // free request
         free(request->key);
         if (request->op == 1)
             data_destroy(request->data);
         free(request);
-        free(children_list);
-        free(next_server);
     }
 
     // Signal next thread to exit
